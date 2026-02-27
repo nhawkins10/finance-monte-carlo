@@ -1,0 +1,384 @@
+<html>
+    <head>
+        <title>Monte Carlo</title>
+        <style>
+            :root {
+                --main-color: #5b815b;
+                --main-color-accent: #4b6c4b;
+                --border-radius: 5px;
+            }
+            body {
+                background: #eeeeee;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                font-family: monospace;
+            }
+            
+            input[type=text] {
+                padding: 5px 8px;
+                border-radius: var(--border-radius);
+                border: 1px solid var(--main-color);
+            }
+            
+            input[type='range'] { 
+                accent-color: var(--main-color); 
+            }
+            
+            button {
+                background: var(--main-color);
+                color: white;
+                padding: 5px 11px;
+                border: 1px solid var(--main-color-accent);
+                border-radius: var(--border-radius);
+                cursor: pointer;
+            }
+            
+            button:hover {
+                background: var(--main-color-accent);
+            }
+            
+            .section {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                background: #ffffff;
+                width: 50%;
+                box-shadow: 0px 1px 5px 0px #cccccc;
+                padding: 16px;
+            }
+            
+            .sectionHeader {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                
+                & h4 {
+                    margin: 0;                
+                }
+            }
+            
+            .inputSection {
+                display: flex;
+                flex-direction: column;
+                
+                & label {
+                    opacity: .75;
+                    font-size: .9em;
+                    margin-bottom: 3px;
+                }
+            }
+            
+            .slider {
+                display: flex;
+                
+                & input {
+                    flex-grow: 1;
+                }
+                
+                & .output {
+                    width: 10%;
+                    text-align: right;
+                }
+            }
+            
+            .tableContainer {
+                & tr {
+                    td:first-of-type {
+                        text-align: right;
+                        font-size: .9em;
+                        opacity: .75;
+                    }
+                    
+                    td:last-of-type {
+                        text-align: right;
+                    }
+                }
+            }
+        </style>
+        <script>
+            let saveResults = [];
+            let retireResults = [];
+            
+            const showValue = (value, field) => {
+                document.getElementById(field).textContent = value;
+            };
+            
+            const getValue = (field) => {
+                return parseFloat(document.getElementById(field).value);
+            };  
+            
+            // Box-Muller transform: uniform random -> standard normal
+            const randn = () => {
+                  const u = 1 - Math.random();
+                  const v = Math.random();
+                  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+            };
+
+            const pct = (values, p) => {
+                return values[Math.floor(p * values.length)]
+            };
+            const fmt = (n) => '$' + Math.round(n).toLocaleString();
+            const fmtPct = (v) => Math.round(v*1000) / 10 + '%';
+            
+            const simulate_save = () => {
+                  let portfolio = getValue('initialInvestment');
+                  const MEAN_RETURN = getValue('averageReturn') / 100;
+                  const RETURN_STD_DEV = getValue('returnStdDev') / 100;
+                  const ANNUAL_CONTRIBUTION = getValue('annualContribution');
+                  
+                  for (let year = 0; year < getValue('saveYears'); year++) {
+                    const annualReturn = MEAN_RETURN + RETURN_STD_DEV * randn();
+                    portfolio = portfolio * (1 + annualReturn) + ANNUAL_CONTRIBUTION;
+                  }
+                  return portfolio;
+            }
+            
+            const calculateSave = (recalcalculateRetire = false) => {
+                if (!getValue('initialInvestment') || !getValue('annualContribution')) {
+                    return;
+                }
+                
+                saveResults = Array.from({ length: parseInt(getValue('simulations')) }, simulate_save).sort((a, b) => a - b);
+                showValue(
+                    fmt(parseInt(getValue('initialInvestment')) + getValue('annualContribution') * parseInt(getValue('saveYears'))),
+                    'save-total'
+                );
+                showValue(
+                    fmt(pct(saveResults, 0.50)),
+                    'save-median'
+                );
+                showValue(
+                    fmt(saveResults.reduce((a, b) => a + b, 0) / saveResults.length),
+                    'save-average'
+                );
+                showValue(
+                    fmt(pct(saveResults, 0.10)),
+                    'save-tenth'
+                );
+                showValue(
+                    fmt(pct(saveResults, 0.25)),
+                    'save-twentyfifth'
+                );
+                
+                //redo retire calculations if they exist
+                if (retireResults.length && recalcalculateRetire) {
+                    calculateRetire();
+                }
+            };
+            
+            const simulate_retire = () => {
+                let remaining = getValue('initialRetirement') || pct(saveResults, 0.50); //start with median output of save calculations if no value provided
+                let withdrawlAmt = (getValue('withdrawalRate') / 100) * remaining;
+                const MEAN_RETURN = getValue('averageReturn') / 100;
+                const RETURN_STD_DEV = getValue('returnStdDev') / 100;
+                const MEAN_INFLATION = getValue('inflationRate') / 100;
+                const INFLATION_STD_DEV = getValue('inflationStdDev') / 100;
+                
+                for (let year = getValue('retireYears'); year >= 0; year--) {
+                    const annualReturn = MEAN_RETURN + RETURN_STD_DEV * randn();
+                    
+                    const returnAmt = remaining * annualReturn;
+                    remaining = remaining + returnAmt - withdrawlAmt;
+                    
+                    //updated withdrawl rate to account for inflation 
+                    const inflation = MEAN_INFLATION + INFLATION_STD_DEV * randn();
+                    withdrawlAmt = withdrawlAmt * (1 + inflation);
+                }
+                return remaining;
+            }
+            
+            const calculateRetire = () => {
+                if (!getValue('initialInvestment') || !getValue('annualContribution')) {
+                    return;
+                }
+                
+                calculateSave();
+                
+                retireResults = Array.from({ length: getValue('simulations') }, simulate_retire).sort((a, b) => a - b);
+                
+                showValue(
+                    fmt(getValue('initialRetirement') || pct(saveResults, 0.50)),
+                    'retire-start'
+                );
+                showValue(
+                    fmt(pct(retireResults, 0.50)),
+                    'retire-median'
+                );
+                showValue(
+                    fmt(retireResults.reduce((a, b) => a + b, 0) / getValue('simulations')),
+                    'retire-average'
+                );
+                showValue(
+                    fmt(pct(retireResults, 0.10)),
+                    'retire-tenth'
+                );
+                showValue(
+                    fmt(pct(retireResults, 0.25)),
+                    'retire-twentyfifth'
+                );
+                showValue(
+                    (retireResults.filter(v => v>0).length / getValue('simulations') * 100).toFixed(1) + '%',
+                    'retire-moneyleft'
+                );
+            };
+        </script>
+    </head>
+    <body>
+        <h2>Retirement Monte Carlo</h2>
+        <div class='section' id='inputs'>
+            <div class='sectionHeader'>
+                <h4>Inputs</h4>
+            </div>
+            <div class='inputSection'>
+                <label for='initialInvestment'>Initial Investment</label>
+                <input id='initialInvestment' type='text' />
+            </div>
+            <div class='inputSection'>
+                <label for='annualContribution'>Annual Contribution</label>
+                <input id='annualContribution' type='text' />
+            </div>
+            <div class='inputSection'>
+                <label for='initialRetirement'>Retire Starting Amt</label>
+                <input id='initialRetirement' type='text' />
+            </div>
+            <div class='inputSection'>
+                <label for='saveYears'>Save Years</label>
+                <div class='slider'>
+                    <input id='saveYears' type='range' min='5' max='75' value='25' oninput='showValue(this.value, "saveYears-output")' />
+                    <div class='output'>
+                        <span id='saveYears-output'>25</span>
+                    </div>
+                </div>
+            </div>
+            <div class='inputSection'>
+                <label for='retireYears'>Retire Years</label>
+                <div class='slider'>
+                    <input id='retireYears' type='range' min='5' max='50' value='30' oninput='showValue(this.value, "retireYears-output")' />
+                    <div class='output'>
+                        <span id='retireYears-output'>30</span>
+                    </div>
+                </div>
+            </div>
+            <div class='inputSection'>
+                <label for='averageReturn'>Avg. Return</label>
+                <div class='slider'>
+                    <input id='averageReturn' type='range' min='0' max='20' value='8' oninput='showValue(this.value, "averageReturn-output")' />
+                    <div class='output'>
+                        <span id='averageReturn-output'>8</span>
+                        <span>%</span>
+                    </div>
+                </div>
+            </div>
+            <div class='inputSection'>
+                <label for='returnStdDev'>Return Std Dev</label>
+                <div class='slider'>
+                    <input id='returnStdDev' type='range' min='0' max='20' value='12' oninput='showValue(this.value, "returnStdDev-output")' />
+                    <div class='output'>
+                        <span id='returnStdDev-output'>12</span>
+                        <span>%</span>
+                    </div>
+                </div>
+            </div>
+            <div class='inputSection'>
+                <label for='withdrawalRate'>Withdrawal Rate</label>
+                <div class='slider'>
+                    <input id='withdrawalRate' type='range' min='1' max='10' value='4' oninput='showValue(this.value, "withdrawalRate-output")' />
+                    <div class='output'>
+                        <span id='withdrawalRate-output'>4</span>
+                        <span>%</span>
+                    </div>
+                </div>
+            </div>
+            <div class='inputSection'>
+                <label for='inflationRate'>Avg. Inflation</label>
+                <div class='slider'>
+                    <input id='inflationRate' type='range' min='0' max='10' value='2.5' step='.5' oninput='showValue(this.value, "inflationRate-output")' />
+                    <div class='output'>
+                        <span id='inflationRate-output'>2.5</span>
+                        <span>%</span>
+                    </div>
+                </div>
+            </div>
+            <div class='inputSection'>
+                <label for='inflationStdDev'>Inflation Std Dev</label>
+                <div class='slider'>
+                    <input id='inflationStdDev' type='range' min='0' max='5' value='1.5' step='.5' oninput='showValue(this.value, "inflationStdDev-output")' />
+                    <div class='output'>
+                        <span id='inflationStdDev-output'>1.5</span>
+                        <span>%</span>
+                    </div>
+                </div>
+            </div>
+            <div class='inputSection'>
+                <label for='simulations'>Simulations</label>
+                <div class='slider'>
+                    <input id='simulations' type='range' min='100' max='100000' value='100000' oninput='showValue(this.value, "simulations-output")' />
+                    <div class='output'>
+                        <span id='simulations-output'>100000</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class='section'>
+            <div class='sectionHeader'>
+                <h4>Saving</h4>
+                <button onclick='calculateSave(true)'>Run</button>
+            </div>
+            <div class='tableContainer'>
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Total Invested:</td><td id='save-total'></td>
+                        </tr>
+                        <tr>
+                            <td>Median:</td><td id='save-median'></td>
+                        </tr>
+                        <tr>
+                            <td>Average:</td><td id='save-average'></td>
+                        </tr>
+                        <tr>
+                            <td>10th percentile:</td><td id='save-tenth'></td>
+                        </tr>
+                        <tr>
+                            <td>25th percentile:</td><td id='save-twentyfifth'></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class='section'>
+            <div class='sectionHeader'>
+                <h4>Retirement</h4>
+                <button onclick='calculateRetire()'>Run</button>
+            </div>
+            <div class='tableContainer'>
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Starting Amount:</td><td id='retire-start'></td>
+                        </tr>
+                        <tr>
+                            <td>Median:</td><td id='retire-median'></td>
+                        </tr>
+                        <tr>
+                            <td>Average:</td><td id='retire-average'></td>
+                        </tr>
+                        <tr>
+                            <td>10th percentile:</td><td id='retire-tenth'></td>
+                        </tr>
+                        <tr>
+                            <td>25th percentile:</td><td id='retire-twentyfifth'></td>
+                        </tr>
+                        <tr>
+                            <td>% > 0:</td><td id='retire-moneyleft'></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+</html>
