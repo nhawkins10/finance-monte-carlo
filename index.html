@@ -1,6 +1,9 @@
+<!DOCTYPE html />
+
 <html>
     <head>
         <title>Monte Carlo</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
         <style>
             :root {
                 --main-color: #5b815b;
@@ -14,9 +17,10 @@
                 align-items: center;
                 gap: 20px;
                 font-family: monospace;
+                font-size: 1.1em;
             }
             
-            input[type=text] {
+            input[type=number] {
                 padding: 5px 8px;
                 border-radius: var(--border-radius);
                 border: 1px solid var(--main-color);
@@ -43,10 +47,16 @@
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                background: #ffffff;
                 width: 50%;
+                background: #ffffff;
                 box-shadow: 0px 1px 5px 0px #cccccc;
                 padding: 16px;
+            }
+            
+            @media (max-width: 767px) {
+                .section {
+                    width: 90%;
+                }
             }
             
             .sectionHeader {
@@ -63,6 +73,10 @@
                 display: flex;
                 flex-direction: column;
                 
+                &.hidden {
+                    display: none;
+                }
+                
                 & label {
                     opacity: .75;
                     font-size: .9em;
@@ -78,8 +92,9 @@
                 }
                 
                 & .output {
-                    width: 10%;
+                    width: 15%;
                     text-align: right;
+                    white-space: nowrap;
                 }
             }
             
@@ -98,8 +113,19 @@
             }
         </style>
         <script>
+            let showMore = false;
             let saveResults = [];
             let retireResults = [];
+            
+            const toggleShowMore = () => {
+                const toggleElements = document.getElementsByClassName('toggleHidden');
+                for (let element of toggleElements) {
+                    element.classList.toggle('hidden');
+                }
+                
+                document.getElementById('showMore').textContent = showMore ? 'Show More' : 'Show Less';
+                showMore = !showMore;
+            };
             
             const showValue = (value, field) => {
                 document.getElementById(field).textContent = value;
@@ -233,17 +259,18 @@
             </div>
             <div class='inputSection'>
                 <label for='initialInvestment'>Initial Investment</label>
-                <input id='initialInvestment' type='text' />
+                <input id='initialInvestment' type='number' />
             </div>
             <div class='inputSection'>
                 <label for='annualContribution'>Annual Contribution</label>
-                <input id='annualContribution' type='text' />
+                <input id='annualContribution' type='number' />
             </div>
             <div class='inputSection'>
                 <label for='initialRetirement'>Retire Starting Amt</label>
-                <input id='initialRetirement' type='text' />
+                <input id='initialRetirement' type='number' />
             </div>
-            <div class='inputSection'>
+            <button id='showMore' onclick='toggleShowMore()'>Show More</button>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='saveYears'>Save Years</label>
                 <div class='slider'>
                     <input id='saveYears' type='range' min='5' max='75' value='25' oninput='showValue(this.value, "saveYears-output")' />
@@ -252,7 +279,7 @@
                     </div>
                 </div>
             </div>
-            <div class='inputSection'>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='retireYears'>Retire Years</label>
                 <div class='slider'>
                     <input id='retireYears' type='range' min='5' max='50' value='30' oninput='showValue(this.value, "retireYears-output")' />
@@ -261,7 +288,7 @@
                     </div>
                 </div>
             </div>
-            <div class='inputSection'>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='averageReturn'>Avg. Return</label>
                 <div class='slider'>
                     <input id='averageReturn' type='range' min='0' max='20' value='8' oninput='showValue(this.value, "averageReturn-output")' />
@@ -271,7 +298,7 @@
                     </div>
                 </div>
             </div>
-            <div class='inputSection'>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='returnStdDev'>Return Std Dev</label>
                 <div class='slider'>
                     <input id='returnStdDev' type='range' min='0' max='20' value='12' oninput='showValue(this.value, "returnStdDev-output")' />
@@ -281,7 +308,7 @@
                     </div>
                 </div>
             </div>
-            <div class='inputSection'>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='withdrawalRate'>Withdrawal Rate</label>
                 <div class='slider'>
                     <input id='withdrawalRate' type='range' min='1' max='10' value='4' oninput='showValue(this.value, "withdrawalRate-output")' />
@@ -291,7 +318,7 @@
                     </div>
                 </div>
             </div>
-            <div class='inputSection'>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='inflationRate'>Avg. Inflation</label>
                 <div class='slider'>
                     <input id='inflationRate' type='range' min='0' max='10' value='2.5' step='.5' oninput='showValue(this.value, "inflationRate-output")' />
@@ -301,7 +328,7 @@
                     </div>
                 </div>
             </div>
-            <div class='inputSection'>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='inflationStdDev'>Inflation Std Dev</label>
                 <div class='slider'>
                     <input id='inflationStdDev' type='range' min='0' max='5' value='1.5' step='.5' oninput='showValue(this.value, "inflationStdDev-output")' />
@@ -311,7 +338,7 @@
                     </div>
                 </div>
             </div>
-            <div class='inputSection'>
+            <div class='inputSection toggleHidden hidden'>
                 <label for='simulations'>Simulations</label>
                 <div class='slider'>
                     <input id='simulations' type='range' min='100' max='100000' value='100000' oninput='showValue(this.value, "simulations-output")' />
